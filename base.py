@@ -12,4 +12,7 @@ start_time = calendar.timezone.localize(datetime(year=2024, month=4, day=1, hour
 calendar.add_event(event=e1, start_time_ns=to_time_ns(start_time))
 start_time2 = calendar.timezone.localize(datetime(year=2024, month=4, day=1, hour=11))
 calendar.add_event(event=e2, start_time_ns=to_time_ns(start_time2))
-st.write(calendar.display_str())
+calendar.schedule_event_asap(e1)
+calendar.schedule_event_asap(e2)
+calendar.check_for_conflicts()
+calendar.display()
