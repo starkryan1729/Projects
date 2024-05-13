@@ -3,12 +3,18 @@ from datetime import datetime, timezone
 from event import Event
 from pytz import timezone as pytz_timezone
 import streamlit as st
+from typing import List
 
 class Calendar():
     def __init__(self, timezone: str, increment_ns: int = 5 * 60 * 1e9):
         self.timezone = pytz_timezone(timezone)
         self.events: dict[int, Event] = None
         self.increment_ns = increment_ns
+    
+    def schedule_events_asap(self, events: List[Event]):
+        events.sort(key=Event.get_duration_ns)
+        for event in events:
+            self.schedule_event_asap(event)
     
     def schedule_event_asap(self, event: Event):
         self.schedule_event(event, to_time_ns(datetime.now(tz=self.timezone)))
