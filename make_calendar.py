@@ -58,7 +58,7 @@ class Calendar():
         start_times = list(self.events.keys())
         for i in range(len(start_times) - 1):
             if start_times[i + 1] < start_times[i] + self.events[start_times[i]].duration_time_ns:
-                st.write(f"Oh no! Conflict found between {self.events[start_times[i]]} and {self.events[start_times[i + 1]]}!")
+                st.write(f"Oh no! Conflict found between {self.events[start_times[i]].to_str()} and {self.events[start_times[i + 1]].to_str()}!")
                 return False
         st.write("No conflicts!")
         return True
