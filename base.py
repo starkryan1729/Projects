@@ -15,6 +15,7 @@ e5 = Event(10 * 60 * 1e9, "Do laundry")
 e6 = Event(20 * 60 * 1e9, "Eat lunch")
 calendar = Calendar("US/Pacific")
 
+# get these from an LLM API call, probably
 calendar.schedule_events_smart(order_matters = {
             "Eat lunch": 12,
             "Make dinner": -1,
