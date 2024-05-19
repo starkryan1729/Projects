@@ -16,11 +16,29 @@ class Calendar():
         for event in events:
             self.schedule_event_asap(event)
     
+    def set_block_to_busy(self, start_time, end_time):
+        events_to_reschedule = {}
+        for event_start_time in self.events:
+            event = self.events[event_start_time]
+            event_end_time = event_start_time + event.duration_time_ns
+            if start_time <= event_start_time <= end_time or start_time <= event_end_time <= end_time or (event_start_time <= start_time and end_time <= event_end_time):
+                events_to_reschedule[event_start_time] = event
+        for event_start_time in events_to_reschedule:
+            self.events.pop(event_start_time)
+        busy_event = Event(end_time - start_time, "Busy")
+        self.schedule_event(busy_event, start_time, rounding=False)
+        self.schedule_events_asap(list(events_to_reschedule.values()))
+    
     def schedule_event_asap(self, event: Event):
         self.schedule_event(event, to_time_ns(datetime.now(tz=self.timezone)))
     
-    def schedule_event(self, event: Event, desired_start_ns: int):
-        desired_ns_rounded_up = int(((desired_start_ns // self.increment_ns) + 1) * self.increment_ns)
+    def schedule_event(self, event: Event, desired_start_ns: int, rounding: bool = True):
+        if rounding:
+            desired_ns_rounded_up = int((desired_start_ns // self.increment_ns) * self.increment_ns)
+            if desired_start_ns % self.increment_ns != 0:
+                desired_ns_rounded_up += self.increment_ns
+        else:
+            desired_ns_rounded_up = desired_start_ns
         num_increments = int((event.duration_time_ns // self.increment_ns) + 1)
         done_search = False
         begin_time_ns = desired_ns_rounded_up
