@@ -84,7 +84,10 @@ class Calendar():
         for event_start_time in events_to_add:
             event = events_to_add[event_start_time]
             self.schedule_event(event, event_start_time, rounding=False)
-        self.schedule_events_asap(list(events_to_reschedule))
+        events_to_reschedule_by_name = {}
+        for event in events_to_reschedule:
+            events_to_reschedule_by_name[event.name] = event
+        self.schedule_events_smart(self.order_matters, self.order_does_not_matter, events_to_reschedule_by_name)
 
     
     def set_block_to_busy(self, start_time, end_time):
