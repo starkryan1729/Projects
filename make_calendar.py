@@ -11,10 +11,76 @@ class Calendar():
         self.events: dict[int, Event] = None
         self.increment_ns = increment_ns
     
+    def schedule_events_smart(self, order_matters: dict[str, int], order_does_not_matter: List[str], events: dict[str, Event]):
+        """
+        THIS QUERY to ChatGPT returns the order_matters and order_doesnt_matter data structures. API call will be added later.
+        Of the events: do dishes, do yoga, make dinner, eat dinner, do laundry, eat lunch, which ones matter for order
+        Can you return the events where order matters as a Python dictionary, and the events where order doesn't matter as a separate Python list? Do not include anything else in the formatting.
+        For the Python dictionary, if there is a suggested start hour for the event, include it as the value in the dictionary. Otherwise, the value can be -1.
+
+        ChatGPT-4o returns:
+        order_matters = {
+            "Eat lunch": 12,
+            "Make dinner": -1,
+            "Eat dinner": 18,
+            "Do dishes": -1
+        }
+        order_does_not_matter = ["Do yoga", "Do laundry"]
+        """
+
+        now = datetime.now(tz=self.timezone)
+        last_time_ns = to_time_ns(now)
+        for event_name in order_matters:
+            if order_matters[event_name] >= 0:
+                desired_start_time_ns = to_time_ns(self.timezone.localize(datetime(year=now.year, month=now.month, day=now.day, hour=order_matters[event_name])))
+                last_time_ns = desired_start_time_ns
+                self.schedule_event(events[event_name], desired_start_time_ns)
+            else:
+                self.schedule_event(events[event_name], last_time_ns)
+        
+        order_does_not_matter_events = [events[event_name] for event_name in order_does_not_matter]
+        self.schedule_events_asap(order_does_not_matter_events)
+
+    
     def schedule_events_asap(self, events: List[Event]):
         events.sort(key=Event.get_duration_ns)
         for event in events:
             self.schedule_event_asap(event)
+    
+    def set_block_to_not_busy(self, start_time, end_time):
+        events_to_remove = {}
+        events_to_add = {}
+        events_to_reschedule = []
+        for event_start_time in self.events:
+            event = self.events[event_start_time]
+            if event.name == "Busy":
+                event_end_time = event_start_time + event.duration_time_ns
+                if start_time <= event_start_time <= end_time:
+                    events_to_remove[event_start_time] = event
+                    if end_time < event_end_time:
+                        busy_event = Event(event_end_time - end_time, "Busy")
+                        events_to_add[end_time] = busy_event
+                elif start_time <= event_end_time <= end_time:
+                    events_to_remove[event_start_time] = event
+                    if event_start_time < start_time:
+                        busy_event = Event(start_time - event_start_time, "Busy")
+                        events_to_add[event_start_time] = busy_event
+                elif event_start_time <= start_time and end_time <= event_end_time:
+                    events_to_remove[event_start_time] = event
+                    busy_event1 = Event(start_time - event_start_time, "Busy")
+                    events_to_add[event_start_time] = busy_event1
+                    busy_event2 = Event(event_end_time - end_time, "Busy")
+                    events_to_add[end_time] = busy_event2
+            elif event_start_time >= end_time:
+                events_to_remove[event_start_time] = event
+                events_to_reschedule.append(event)
+        for event_start_time in events_to_remove:
+            self.events.pop(event_start_time)
+        for event_start_time in events_to_add:
+            event = events_to_add[event_start_time]
+            self.schedule_event(event, event_start_time, rounding=False)
+        self.schedule_events_asap(list(events_to_reschedule))
+
     
     def set_block_to_busy(self, start_time, end_time):
         events_to_reschedule = {}
