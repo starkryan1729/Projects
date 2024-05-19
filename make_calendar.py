@@ -10,6 +10,8 @@ class Calendar():
         self.timezone = pytz_timezone(timezone)
         self.events: dict[int, Event] = None
         self.increment_ns = increment_ns
+        self.order_matters: dict[str, int] = {}
+        self.order_does_not_matter: List[str] = []
     
     def schedule_events_smart(self, order_matters: dict[str, int], order_does_not_matter: List[str], events: dict[str, Event]):
         """
@@ -27,18 +29,21 @@ class Calendar():
         }
         order_does_not_matter = ["Do yoga", "Do laundry"]
         """
+        self.order_matters = order_matters
+        self.order_does_not_matter = order_does_not_matter
 
         now = datetime.now(tz=self.timezone)
         last_time_ns = to_time_ns(now)
-        for event_name in order_matters:
-            if order_matters[event_name] >= 0:
-                desired_start_time_ns = to_time_ns(self.timezone.localize(datetime(year=now.year, month=now.month, day=now.day, hour=order_matters[event_name])))
-                last_time_ns = desired_start_time_ns
-                self.schedule_event(events[event_name], desired_start_time_ns)
-            else:
-                self.schedule_event(events[event_name], last_time_ns)
+        for event_name in self.order_matters:
+            if event_name in events:
+                if self.order_matters[event_name] >= 0:
+                    desired_start_time_ns = to_time_ns(self.timezone.localize(datetime(year=now.year, month=now.month, day=now.day, hour=self.order_matters[event_name])))
+                    last_time_ns = desired_start_time_ns
+                    self.schedule_event(events[event_name], desired_start_time_ns)
+                else:
+                    self.schedule_event(events[event_name], last_time_ns)
         
-        order_does_not_matter_events = [events[event_name] for event_name in order_does_not_matter]
+        order_does_not_matter_events = [events[event_name] for event_name in events if event_name in self.order_does_not_matter]
         self.schedule_events_asap(order_does_not_matter_events)
 
     
@@ -83,17 +88,31 @@ class Calendar():
 
     
     def set_block_to_busy(self, start_time, end_time):
-        events_to_reschedule = {}
+        events_to_reschedule: dict[str, Event] = {}
         for event_start_time in self.events:
             event = self.events[event_start_time]
             event_end_time = event_start_time + event.duration_time_ns
             if start_time <= event_start_time <= end_time or start_time <= event_end_time <= end_time or (event_start_time <= start_time and end_time <= event_end_time):
                 events_to_reschedule[event_start_time] = event
+        new_end_time = end_time
         for event_start_time in events_to_reschedule:
             self.events.pop(event_start_time)
+        for event_start_time in events_to_reschedule:
+            event = events_to_reschedule[event_start_time]
+            if event.name in self.order_matters and self.order_matters[event.name] >= 0:
+                new_end_time += event.duration_time_ns
+        for event_start_time in self.events:
+            event = self.events[event_start_time]
+            event_end_time = event_start_time + event.duration_time_ns
+            if end_time <= event_start_time <= new_end_time or end_time <= event_end_time <= new_end_time or (event_start_time <= end_time and new_end_time <= event_end_time):
+                events_to_reschedule[event_start_time] = event
         busy_event = Event(end_time - start_time, "Busy")
         self.schedule_event(busy_event, start_time, rounding=False)
-        self.schedule_events_asap(list(events_to_reschedule.values()))
+        events_to_reschedule_by_name = {}
+        for event_start_time in events_to_reschedule:
+            event = events_to_reschedule[event_start_time]
+            events_to_reschedule_by_name[event.name] = event
+        self.schedule_events_smart(self.order_matters, self.order_does_not_matter, events_to_reschedule_by_name)
     
     def schedule_event_asap(self, event: Event):
         self.schedule_event(event, to_time_ns(datetime.now(tz=self.timezone)))
